@@ -2,7 +2,7 @@
 #
 # FFmpeg-Android, a bash script to build FFmpeg for Android.
 #
-# Copyright (c) 2012 Cedric Fung <wolfplanet@gmail.com>
+# Copyright (c) 2012 Cedric Fung <root@vec.io>
 #
 # FFmpeg-Android will build FFmpeg for Android automatically,
 # with patches from VPlayer's Android version <https://vplayer.net/>.
@@ -52,7 +52,7 @@ export CC="ccache arm-linux-androideabi-gcc"
 export LD=arm-linux-androideabi-ld
 export AR=arm-linux-androideabi-ar
 
-CFLAGS="-O3 -Wall -mthumb -pipe -fpic -fasm \
+CFLAGS="-O3 -Wall -marm -pipe -fpic -fasm \
   -finline-limit=300 -ffast-math \
   -fstrict-aliasing -Werror=strict-aliasing \
   -fmodulo-sched -fmodulo-sched-allow-regmoves \

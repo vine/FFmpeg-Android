@@ -38,10 +38,16 @@ if [ -d ffmpeg ]; then
   cd ffmpeg
 else
   git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg
-  cd ffmpeg && patch -p1 <../FFmpeg-VPlayer.patch
+  cd ffmpeg
 fi
 
-git log | head -n 1 | awk '{print $2}' > ../ffmpeg-version
+git reset --hard
+git clean -f -d
+git checkout `cat ../ffmpeg-version`
+patch -p1 <../FFmpeg-VPlayer.patch
+[ $PIPESTATUS == 0 ] || exit 1
+
+git log --pretty=format:%H -1 > ../ffmpeg-version
 
 TOOLCHAIN=/tmp/vplayer
 SYSROOT=$TOOLCHAIN/sysroot/
@@ -52,7 +58,7 @@ export CC="ccache arm-linux-androideabi-gcc"
 export LD=arm-linux-androideabi-ld
 export AR=arm-linux-androideabi-ar
 
-CFLAGS="-O3 -Wall -marm -pipe -fpic -fasm \
+CFLAGS="-O3 -Wall -mthumb -pipe -fpic -fasm \
   -finline-limit=300 -ffast-math \
   -fstrict-aliasing -Werror=strict-aliasing \
   -fmodulo-sched -fmodulo-sched-allow-regmoves \
@@ -73,7 +79,6 @@ FFMPEG_FLAGS="--target-os=linux \
   --disable-ffserver \
   --disable-avdevice \
   --disable-avfilter \
-  --disable-encoders  \
   --disable-encoders \
   --disable-muxers \
   --disable-bsfs \

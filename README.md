@@ -1,9 +1,6 @@
 The FFmpeg code used in VPlayer for Android
 ===========================================
 
-This project includes the shell script to build FFmpeg for Android.
-
-
 Build
 -----
 

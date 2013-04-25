@@ -1,6 +1,7 @@
 #!/bin/bash
 DEST=`pwd`/build/ffmpeg && rm -rf $DEST
 SOURCE=`pwd`/ffmpeg
+X264_SOURCE=`pwd`/x264
 
 if [ -d ffmpeg ]; then
   cd ffmpeg
@@ -34,6 +35,18 @@ CFLAGS="-O3 -Wall -mthumb -pipe -fpic -fasm \
   -D__ARM_ARCH_5__ -D__ARM_ARCH_5E__ -D__ARM_ARCH_5T__ -D__ARM_ARCH_5TE__ \
   -DANDROID -DNDEBUG"
 
+X264_FLAGS="--cross-prefix=arm-linux-androideabi- \
+--enable-pic --enable-static \
+--prefix=$PREFIX \
+--host=arm-linux"
+
+echo "configure and make x264"
+cd $X264_SOURCE
+
+./configure $X264_FLAGS
+make 
+
+
 FFMPEG_FLAGS="--target-os=linux \
   --arch=arm \
   --enable-cross-compile \
@@ -46,12 +59,7 @@ FFMPEG_FLAGS="--target-os=linux \
   --disable-ffprobe \
   --disable-ffserver \
   --disable-avdevice \
-  --disable-avfilter \
-  --disable-encoders \
-  --disable-muxers \
-  --disable-filters \
   --disable-devices \
-  --disable-everything \
   --enable-protocols  \
   --enable-parsers \
   --enable-demuxers \
@@ -59,15 +67,16 @@ FFMPEG_FLAGS="--target-os=linux \
   --enable-bsfs \
   --enable-network \
   --enable-swscale  \
-  --disable-demuxer=sbg \
-  --disable-demuxer=dts \
-  --disable-parser=dca \
-  --disable-decoder=dca \
+  --enable-hwaccels \
+  --enable-decoder=rawvideo \
+  --enable-encoder=libx264 \
+  --enable-libx264 \
   --enable-asm \
+  --enable-gpl \
   --enable-version3"
 
 
-for version in neon armv7 vfp armv6; do
+for version in armv6; do
 
   cd $SOURCE
 
@@ -97,7 +106,7 @@ for version in neon armv7 vfp armv6; do
   PREFIX="$DEST/$version" && mkdir -p $PREFIX
   FFMPEG_FLAGS="$FFMPEG_FLAGS --prefix=$PREFIX"
 
-  ./configure $FFMPEG_FLAGS --extra-cflags="$CFLAGS $EXTRA_CFLAGS" --extra-ldflags="$EXTRA_LDFLAGS" | tee $PREFIX/configuration.txt
+  ./configure $FFMPEG_FLAGS --extra-cflags="$CFLAGS $EXTRA_CFLAGS -I$X264_SOURCE" --extra-ldflags="$EXTRA_LDFLAGS -L$X264_SOURCE" | tee $PREFIX/configuration.txt
   cp config.* $PREFIX
   [ $PIPESTATUS == 0 ] || exit 1
 

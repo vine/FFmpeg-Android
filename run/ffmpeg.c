@@ -1358,6 +1358,8 @@ static const AVIOInterruptCB int_cb = { decode_interrupt_cb, NULL };
 
 void av_noreturn exit_program(int ret)
 {
+    LOGE("Exit program called. %d",ret);
+
     int i, j;
 
     for (i = 0; i < nb_filtergraphs; i++) {
@@ -1428,12 +1430,13 @@ void av_noreturn exit_program(int ret)
     avformat_network_deinit();
 
     if (received_sigterm) {
-        av_log(NULL, AV_LOG_INFO, "Received signal %d: terminating.\n",
+        LOGE("Received signal %d: terminating.\n",
                (int) received_sigterm);
         exit (255);
     }
 
     exit(ret);
+    return ret;
 }
 
 static void assert_avoptions(AVDictionary *m)
@@ -2243,7 +2246,7 @@ static void flush_encoders(void)
                 ret = encode(enc, &pkt, NULL, &got_packet);
                 update_benchmark("flush %s %d.%d", desc, ost->file_index, ost->index);
                 if (ret < 0) {
-                    av_log(NULL, AV_LOG_FATAL, "%s encoding failed\n", desc);
+                    LOGE("%s encoding failed\n", desc);
                     exit_program(1);
                 }
                 *size += pkt.size;
@@ -3583,15 +3586,23 @@ static int transcode(void)
     int no_packet_count = 0;
     int64_t timer_start;
 
-    if (!(no_packet = av_mallocz(nb_input_files)))
+    LOGD("transcode() entered.");
+
+    if (!(no_packet = av_mallocz(nb_input_files))){
+        LOGD("Transcoding fail.");
         exit_program(1);
+    }
+
+    LOGD("transcode() init.");
 
     ret = transcode_init();
     if (ret < 0)
         goto fail;
 
+    LOGD("transcode() init complete..");
+
     if (stdin_interaction) {
-        av_log(NULL, AV_LOG_INFO, "Press [q] to stop, [?] for help\n");
+        LOGD("Press [q] to stop, [?] for help\n");
     }
 
     timer_start = av_gettime();
@@ -3601,7 +3612,9 @@ static int transcode(void)
         goto fail;
 #endif
 
+    LOGD("transcode() start.");
     for (; received_sigterm == 0;) {
+        LOGD("transcode() continue.....");
         int file_index, ist_index;
         AVPacket pkt;
         int64_t cur_time= av_gettime();
@@ -3613,7 +3626,7 @@ static int transcode(void)
 
         /* check if there's any stream where output is still needed */
         if (!need_output()) {
-            av_log(NULL, AV_LOG_VERBOSE, "No more output streams to write to, finishing.\n");
+            LOGD("transcode() No more output streams to write to, finishing.\n");
             break;
         }
 
@@ -3627,7 +3640,7 @@ static int transcode(void)
                 av_usleep(10000);
                 continue;
             }
-            av_log(NULL, AV_LOG_VERBOSE, "No more inputs to read from, finishing.\n");
+            LOGD("transcode() No more inputs to read from, finishing.\n");
             break;
         }
 
@@ -3640,17 +3653,21 @@ static int transcode(void)
             continue;
         }
         if (ret < 0) {
+            LOGE("transcode() Error encountered.");
             if (ret != AVERROR_EOF) {
                 print_error(is->filename, ret);
-                if (exit_on_error)
+                if (exit_on_error){
+                    LOGE("transcode() NON-EOF Error encountered.");
                     exit_program(1);
+                }
             }
             input_files[file_index]->eof_reached = 1;
 
             for (i = 0; i < input_files[file_index]->nb_streams; i++) {
                 ist = input_streams[input_files[file_index]->ist_index + i];
-                if (ist->decoding_needed)
+                if (ist->decoding_needed){
                     output_packet(ist, NULL);
+                }
             }
 
             if (opt_shortest)
@@ -3686,7 +3703,7 @@ static int transcode(void)
             pkt.dts *= ist->ts_scale;
 
         if (debug_ts) {
-            av_log(NULL, AV_LOG_INFO, "demuxer -> ist_index:%d type:%s "
+            LOGD("demuxer -> ist_index:%d type:%s "
                     "next_dts:%s next_dts_time:%s next_pts:%s next_pts_time:%s  pkt_pts:%s pkt_pts_time:%s pkt_dts:%s pkt_dts_time:%s off:%"PRId64"\n",
                     ist_index, av_get_media_type_string(ist->st->codec->codec_type),
                     av_ts2str(ist->next_dts), av_ts2timestr(ist->next_dts, &ist->st->time_base),
@@ -3705,8 +3722,7 @@ static int transcode(void)
                  ist->st->codec->codec_type != AVMEDIA_TYPE_SUBTITLE) ||
                 pkt_dts+1<ist->pts){
                 input_files[ist->file_index]->ts_offset -= delta;
-                av_log(NULL, AV_LOG_DEBUG,
-                       "timestamp discontinuity %"PRId64", new offset= %"PRId64"\n",
+                LOGD("timestamp discontinuity %"PRId64", new offset= %"PRId64"\n",
                        delta, input_files[ist->file_index]->ts_offset);
                 pkt.dts-= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
                 if (pkt.pts != AV_NOPTS_VALUE)
@@ -3745,11 +3761,11 @@ static int transcode(void)
             continue;
         }
 
-    discard_packet:
+        discard_packet:
         av_free_packet(&pkt);
 
         /* dump report by using the output first video and audio streams */
-        print_report(0, timer_start, cur_time);
+        LOGD("transcode() output starting.... %d %d",timer_start, cur_time);
     }
 #if HAVE_PTHREADS
     free_input_threads();
@@ -3762,11 +3778,19 @@ static int transcode(void)
             output_packet(ist, NULL);
         }
     }
+    LOGD("transcode() poll filters....");
+
     poll_filters();
+
+    LOGD("transcode() flush_encoders....");
+
     flush_encoders();
+
+    LOGD("transcode() term_exit....");
 
     term_exit();
 
+    LOGD("transcode() write the trailer if needed and close file....");
     /* write the trailer if needed and close file */
     for (i = 0; i < nb_output_files; i++) {
         os = output_files[i]->ctx;
@@ -3774,8 +3798,9 @@ static int transcode(void)
     }
 
     /* dump report by using the first video and audio streams */
-    print_report(1, timer_start, av_gettime());
+    LOGD("transcode() closing.... %d %d", timer_start, av_gettime());
 
+    LOGD("transcode() closing encoders.");
     /* close each encoder */
     for (i = 0; i < nb_output_streams; i++) {
         ost = output_streams[i];
@@ -3785,6 +3810,7 @@ static int transcode(void)
         }
     }
 
+    LOGD("transcode() closing decoders.");
     /* close each decoder */
     for (i = 0; i < nb_input_streams; i++) {
         ist = input_streams[i];
@@ -3797,6 +3823,7 @@ static int transcode(void)
     ret = 0;
 
  fail:
+    LOGD("transcode() failed.");
     av_freep(&no_packet);
 #if HAVE_PTHREADS
     free_input_threads();
@@ -3805,9 +3832,11 @@ static int transcode(void)
     if (output_streams) {
         for (i = 0; i < nb_output_streams; i++) {
             ost = output_streams[i];
+            LOGD("transcode() last step...");
             if (ost) {
                 if (ost->stream_copy)
                     av_freep(&ost->st->codec->extradata);
+                LOGD("transcode() closing logs...");
                 if (ost->logfile) {
                     fclose(ost->logfile);
                     ost->logfile = NULL;
@@ -3818,6 +3847,7 @@ static int transcode(void)
             }
         }
     }
+    LOGD("transcode() exiting....");
     return ret;
 }
 
@@ -6043,7 +6073,6 @@ LOGD("main(): parsing options");
 LOGD("main(): options parsed");
 
     if (nb_output_files <= 0 && nb_input_files == 0) {
-        show_usage();
         LOGD("Use -h to get full help or, even better, run 'man %s'\n", program_name);
         return 1;
     }
@@ -6060,10 +6089,14 @@ LOGD("main(): options parsed");
     }
 
     current_time = ti = getutime();
+
+    LOGD("Transcoding start.");
     if (transcode() < 0){
         LOGE("Cannot transode.");
         return 1;
     }
+    LOGD("Transcoding complete.");
+
     ti = getutime() - ti;
     if (do_benchmark) {
         int maxrss = getmaxrss() / 1024;

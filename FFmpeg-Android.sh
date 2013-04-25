@@ -5,10 +5,10 @@ X264_SOURCE=`pwd`/x264
 
 if [ -d ffmpeg ]; then
   cd ffmpeg
+
 else
   git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg
   cd ffmpeg
-fi
 
 git reset --hard
 git clean -f -d
@@ -17,6 +17,7 @@ patch -p1 <../FFmpeg-VPlayer.patch
 [ $PIPESTATUS == 0 ] || exit 1
 
 git log --pretty=format:%H -1 > ../ffmpeg-version
+fi
 
 TOOLCHAIN=/tmp/vplayer
 SYSROOT=$TOOLCHAIN/sysroot/
@@ -36,7 +37,7 @@ CFLAGS="-O3 -Wall -mthumb -pipe -fpic -fasm \
   -DANDROID -DNDEBUG"
 
 X264_FLAGS="--cross-prefix=arm-linux-androideabi- \
---enable-pic --enable-static \
+--enable-pic --enable-static -Wl --fix-cortex-a8 \
 --prefix=$PREFIX \
 --host=arm-linux"
 
@@ -58,25 +59,27 @@ FFMPEG_FLAGS="--target-os=linux \
   --disable-ffmpeg \
   --disable-ffprobe \
   --disable-ffserver \
-  --disable-avdevice \
-  --disable-devices \
   --enable-protocols  \
+  --enable-fft \
+  --enable-rdft \
   --enable-parsers \
   --enable-demuxers \
   --enable-decoders \
   --enable-bsfs \
   --enable-network \
   --enable-swscale  \
+  --enable-swresample  \
+  --enable-avresample \
   --enable-hwaccels \
   --enable-decoder=rawvideo \
-  --enable-encoder=libx264 \
+  --enable-encoder=aac,libx264 \
   --enable-libx264 \
   --enable-asm \
   --enable-gpl \
   --enable-version3"
 
 
-for version in armv6; do
+for version in armv7; do
 
   cd $SOURCE
 
@@ -115,9 +118,9 @@ for version in armv6; do
   make install || exit 1
 
   rm libavcodec/inverse.o
-  $CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
+  #$CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
 
-  cp $PREFIX/libffmpeg.so $PREFIX/libffmpeg-debug.so
-  arm-linux-androideabi-strip --strip-unneeded $PREFIX/libffmpeg.so
+  #cp $PREFIX/libffmpeg.so $PREFIX/libffmpeg-debug.so
+  #arm-linux-androideabi-strip --strip-unneeded $PREFIX/libffmpeg.so
 
 done

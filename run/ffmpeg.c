@@ -3614,7 +3614,6 @@ static int transcode(void)
 
     LOGD("transcode() start.");
     for (; received_sigterm == 0;) {
-        LOGD("transcode() continue.....");
         int file_index, ist_index;
         AVPacket pkt;
         int64_t cur_time= av_gettime();
@@ -3765,7 +3764,7 @@ static int transcode(void)
         av_free_packet(&pkt);
 
         /* dump report by using the output first video and audio streams */
-        LOGD("transcode() output starting.... %d %d",timer_start, cur_time);
+        //LOGD("transcode() output starting.... %d %d",timer_start, cur_time);
     }
 #if HAVE_PTHREADS
     free_input_threads();

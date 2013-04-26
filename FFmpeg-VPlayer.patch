@@ -39,7 +39,19 @@ index ec86b25..7adf18b 100644
 +
      if (!avctx->extradata || !avctx->extradata_size)
          return 1;
-
+diff --git a/libavfilter/af_atempo.c b/libavfilter/af_atempo.c
+index 959cacb..2983d3c 100644
+--- a/libavfilter/af_atempo.c
++++ b/libavfilter/af_atempo.c
+@@ -39,7 +39,7 @@
+  */
+ 
+ #include <float.h>
+-#include "libavcodec/avfft.h"
++#include "libavcodec/avfft.c"
+ #include "libavutil/audioconvert.h"
+ #include "libavutil/avassert.h"
+ #include "libavutil/avstring.h"
 diff --git a/libavcodec/rv34.c b/libavcodec/rv34.c
 index 62619b3..dab19e8 100644
 --- a/libavcodec/rv34.c

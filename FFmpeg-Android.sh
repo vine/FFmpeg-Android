@@ -9,6 +9,7 @@ if [ -d ffmpeg ]; then
 else
   git clone git://source.ffmpeg.org/ffmpeg.git ffmpeg
   cd ffmpeg
+fi
 
 git reset --hard
 git clean -f -d
@@ -17,7 +18,6 @@ patch -p1 <../FFmpeg-VPlayer.patch
 [ $PIPESTATUS == 0 ] || exit 1
 
 git log --pretty=format:%H -1 > ../ffmpeg-version
-fi
 
 TOOLCHAIN=/tmp/vplayer
 SYSROOT=$TOOLCHAIN/sysroot/

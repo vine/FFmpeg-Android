@@ -135,7 +135,7 @@ for version in armv7; do
   rm libavcodec/inverse.o
 
   cd ..
-  ndk-build
+  $ANDROID_NDK/ndk-build
   mv ../libs/armeabi ../libs/$version
   #$CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
 

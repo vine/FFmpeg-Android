@@ -2215,6 +2215,8 @@ static void flush_encoders(void)
         if (ost->st->codec->codec_type == AVMEDIA_TYPE_VIDEO && (os->oformat->flags & AVFMT_RAWPICTURE) && enc->codec->id == CODEC_ID_RAWVIDEO)
             continue;
 
+        LOGD("encoding ... %d",i);
+        
         for (;;) {
             int (*encode)(AVCodecContext*, AVPacket*, const AVFrame*, int*) = NULL;
             const char *desc;
@@ -3613,7 +3615,8 @@ static int transcode(void)
 #endif
 
     LOGD("transcode() start.");
-    for (; received_sigterm == 0;) {
+    int edi=0;
+    for (; received_sigterm == 0;edi++) {
         int file_index, ist_index;
         AVPacket pkt;
         int64_t cur_time= av_gettime();
@@ -3652,7 +3655,7 @@ static int transcode(void)
             continue;
         }
         if (ret < 0) {
-            LOGE("transcode() Error encountered.");
+            LOGE("transcode() done signal encountered.");
             if (ret != AVERROR_EOF) {
                 print_error(is->filename, ret);
                 if (exit_on_error){
@@ -3764,7 +3767,7 @@ static int transcode(void)
         av_free_packet(&pkt);
 
         /* dump report by using the output first video and audio streams */
-        //LOGD("transcode() output starting.... %d %d",timer_start, cur_time);
+        LOGD("transcode() read.... %d %d %d",timer_start, cur_time, edi);
     }
 #if HAVE_PTHREADS
     free_input_threads();
@@ -4278,7 +4281,7 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
             MATCH_PER_STREAM_OPT(frame_rates, str, framerate, ic, st);
             if (framerate && av_parse_video_rate(&ist->framerate,
                                                  framerate) < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Error parsing framerate %s.\n",
+                LOGE("Error parsing framerate %s.\n",
                        framerate);
                 exit_program(1);
             }

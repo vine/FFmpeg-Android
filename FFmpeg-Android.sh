@@ -55,7 +55,7 @@ FFMPEG_FLAGS="--target-os=linux \
   --enable-version3"
 
 if [ -d $TOOLCHAIN ]; then
-    echo "Tool chain is already built."
+    echo "Toolchain is already built."
 else
     $ANDROID_NDK/build/tools/make-standalone-toolchain.sh --platform=android-14 --install-dir=$TOOLCHAIN
 fi
@@ -105,6 +105,7 @@ for version in armv7; do
     armv7)
       EXTRA_CFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp"
       EXTRA_LDFLAGS="-Wl,--fix-cortex-a8"
+      LIB_SUB="armeabi-v7a"
       ;;
     vfp)
       EXTRA_CFLAGS="-march=armv6 -mfpu=vfp -mfloat-abi=softfp"
@@ -128,15 +129,15 @@ for version in armv7; do
   cp config.* $PREFIX
   [ $PIPESTATUS == 0 ] || exit 1
 
-  #make clean
-  #make -j4 || exit 1
-  #make install || exit 1
+  make clean
+  make -j4 || exit 1
+  make install || exit 1
 
   rm libavcodec/inverse.o
 
   cd ..
   $ANDROID_NDK/ndk-build
-  mv ../libs/armeabi ../libs/$version
+  #mv ../libs/armeabi ../libs/$LIB_SUB
   #$CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
 
   #cp $PREFIX/libffmpeg.so $PREFIX/libffmpeg-debug.so

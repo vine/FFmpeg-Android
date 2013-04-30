@@ -38,6 +38,7 @@ FFMPEG_FLAGS="--target-os=linux \
   --enable-protocols  \
   --enable-fft \
   --enable-rdft \
+  --enable-pthreads \
   --enable-parsers \
   --enable-demuxers \
   --enable-decoders \
@@ -93,7 +94,7 @@ else
 fi
 
 
-for version in armv7; do
+for version in neon; do
 
   cd $SOURCE
 
@@ -101,11 +102,14 @@ for version in armv7; do
     neon)
       EXTRA_CFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -mvectorize-with-neon-quad"
       EXTRA_LDFLAGS="-Wl,--fix-cortex-a8"
+      LIB_SUB="armeabi-v7a"
+      LOCAL_ARM_NEON= true
       ;;
     armv7)
       EXTRA_CFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp"
       EXTRA_LDFLAGS="-Wl,--fix-cortex-a8"
       LIB_SUB="armeabi-v7a"
+      LOCAL_ARM_NEON= false
       ;;
     vfp)
       EXTRA_CFLAGS="-march=armv6 -mfpu=vfp -mfloat-abi=softfp"
@@ -114,6 +118,7 @@ for version in armv7; do
     armv6)
       EXTRA_CFLAGS="-march=armv6"
       EXTRA_LDFLAGS=""
+      LOCAL_ARM_NEON  := false
       ;;
     *)
       EXTRA_CFLAGS=""
@@ -136,7 +141,7 @@ for version in armv7; do
   rm libavcodec/inverse.o
 
   cd ..
-  $ANDROID_NDK/ndk-build
+  $ANDROID_NDK/ndk-build -d -e TARGET_ARCH_ABI=$LIB_SUB LOCAL_ARM_NEON=$LOCAL_ARM_NEON
   #mv ../libs/armeabi ../libs/$LIB_SUB
   #$CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
 

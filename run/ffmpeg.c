@@ -3767,7 +3767,7 @@ static int transcode(void)
         av_free_packet(&pkt);
 
         /* dump report by using the output first video and audio streams */
-        LOGD("transcode() read.... %d %d %d",timer_start, cur_time, edi);
+        //LOGD("transcode() read.... %d %d %d",timer_start, cur_time, edi);
     }
 #if HAVE_PTHREADS
     free_input_threads();

@@ -3724,8 +3724,8 @@ static int transcode(void)
                  ist->st->codec->codec_type != AVMEDIA_TYPE_SUBTITLE) ||
                 pkt_dts+1<ist->pts){
                 input_files[ist->file_index]->ts_offset -= delta;
-                LOGD("timestamp discontinuity %"PRId64", new offset= %"PRId64" for file %d.\n",
-                       delta, input_files[ist->file_index]->ts_offset, ist->file_index);
+                LOGD("timestamp discontinuity %"PRId64", new offset= %"PRId64" for pkt %"PRId64" and %d.\n",
+                       delta, input_files[ist->file_index]->ts_offset, pkt_dts, pkt.dts);
                 pkt.dts-= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);
                 if (pkt.pts != AV_NOPTS_VALUE)
                     pkt.pts-= av_rescale_q(delta, AV_TIME_BASE_Q, ist->st->time_base);

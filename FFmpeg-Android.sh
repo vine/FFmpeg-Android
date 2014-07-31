@@ -1,33 +1,27 @@
 #!/bin/bash
 DEST=`pwd`/build/ffmpeg && rm -rf $DEST
 SOURCE=`pwd`/ffmpeg
+X264_DEST=`pwd`/build/x264 && rm -rf $X264_DEST
 X264_SOURCE=`pwd`/x264
 
-TOOLCHAIN=/tmp/vplayer
-SYSROOT=$TOOLCHAIN/sysroot/
+TOOLCHAIN_ARM=/tmp/vplayer-arm
+TOOLCHAIN_X86=/tmp/vplayer-x86
+SYSROOT_ARM=$TOOLCHAIN_ARM/sysroot/
+SYSROOT_X86=$TOOLCHAIN_X86/sysroot/
+EXTRA_ARM_CFLAGS="-mthumb -fstrict-aliasing -Werror=strict-aliasing -D__ARM_ARCH_5__ -D__ARM_ARCH_5E__ -D__ARM_ARCH_5T__ -D__ARM_ARCH_5TE__ -Wl,--fix-cortex-a8"
 
-export PATH=$TOOLCHAIN/bin:$PATH
-export CC="ccache arm-linux-androideabi-gcc"
-export LD=arm-linux-androideabi-ld
-export AR=arm-linux-androideabi-ar
+export PATH=$TOOLCHAIN_ARM/bin:$TOOLCHAIN_X86/bin:$PATH
 
-CFLAGS="-O3 -Wall -mthumb -pipe -fpic -fasm \
+CFLAGS="-O3 -Wall -pipe -fpic -fasm \
   -finline-limit=300 -ffast-math \
-  -fstrict-aliasing -Werror=strict-aliasing \
   -fmodulo-sched -fmodulo-sched-allow-regmoves \
   -Wno-psabi -Wa,--noexecstack \
-  -D__ARM_ARCH_5__ -D__ARM_ARCH_5E__ -D__ARM_ARCH_5T__ -D__ARM_ARCH_5TE__ \
   -DANDROID -DNDEBUG"
 
-X264_FLAGS="--cross-prefix=arm-linux-androideabi- \
---enable-pic --enable-static -Wl --fix-cortex-a8 \
---prefix=$PREFIX \
---host=arm-linux"
+X264_FLAGS="--enable-pic --enable-static"
 
 FFMPEG_FLAGS="--target-os=linux \
-  --arch=arm \
   --enable-cross-compile \
-  --cross-prefix=arm-linux-androideabi- \
   --enable-shared \
   --disable-symver \
   --disable-doc \
@@ -55,10 +49,16 @@ FFMPEG_FLAGS="--target-os=linux \
   --enable-gpl \
   --enable-version3"
 
-if [ -d $TOOLCHAIN ]; then
-    echo "Toolchain is already built."
+if [ -d $TOOLCHAIN_ARM ]; then
+    echo "arm toolchain is already built."
 else
-    $ANDROID_NDK/build/tools/make-standalone-toolchain.sh --platform=android-14 --install-dir=$TOOLCHAIN
+    $ANDROID_NDK/build/tools/make-standalone-toolchain.sh --platform=android-14 --install-dir=$TOOLCHAIN_ARM
+fi
+
+if [ -d $TOOLCHAIN_X86 ]; then
+    echo "x86 toolchain is already built."
+else
+    $ANDROID_NDK/build/tools/make-standalone-toolchain.sh --platform=android-14 --arch=x86 --install-dir=$TOOLCHAIN_X86
 fi
 
 
@@ -66,15 +66,6 @@ if [ -d $X264_SOURCE ]; then
     echo "libx264 is already cloned."
 else
     git submodule update --init
-fi
-
-if [ -f $X264_SOURCE/libx264.a ]; then
-    echo "libx264 is already built."
-else
-    echo "configure and make x264"
-    cd $X264_SOURCE
-   ./configure $X264_FLAGS
-    make STRIP=
 fi
 
 if [ -d ffmpeg ]; then
@@ -94,31 +85,46 @@ else
 fi
 
 
-for version in neon; do
-
-  cd $SOURCE
-
+for version in neon x86; do
   case $version in
     neon)
-      EXTRA_CFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -mvectorize-with-neon-quad"
+      TOOLCHAIN_PREFIX=arm-linux-androideabi
+      TARGET_ARCH=arm
+      TARGET_ARCH_X264=arm
+      EXTRA_CFLAGS="$EXTRA_ARM_CFLAGS -march=armv7-a -mfpu=neon -mfloat-abi=softfp -mvectorize-with-neon-quad"
       EXTRA_LDFLAGS="-Wl,--fix-cortex-a8"
       LIB_SUB="armeabi-v7a"
-      LOCAL_ARM_NEON= true
       ;;
     armv7)
-      EXTRA_CFLAGS="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp"
+      TOOLCHAIN_PREFIX=arm-linux-androideabi
+      TARGET_ARCH=arm
+      TARGET_ARCH_X264=arm
+      EXTRA_CFLAGS="$EXTRA_ARM_CFLAGS -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp"
       EXTRA_LDFLAGS="-Wl,--fix-cortex-a8"
       LIB_SUB="armeabi-v7a"
-      LOCAL_ARM_NEON= false
       ;;
     vfp)
-      EXTRA_CFLAGS="-march=armv6 -mfpu=vfp -mfloat-abi=softfp"
+      TOOLCHAIN_PREFIX=arm-linux-androideabi
+      TARGET_ARCH=arm
+      TARGET_ARCH_X264=arm
+      EXTRA_CFLAGS="$EXTRA_ARM_CFLAGS -march=armv6 -mfpu=vfp -mfloat-abi=softfp"
       EXTRA_LDFLAGS=""
       ;;
     armv6)
-      EXTRA_CFLAGS="-march=armv6"
+      TOOLCHAIN_PREFIX=arm-linux-androideabi
+      TARGET_ARCH=arm
+      TARGET_ARCH_X264=arm
+      EXTRA_CFLAGS="$EXTRA_ARM_CFLAGS -march=armv6"
       EXTRA_LDFLAGS=""
-      LOCAL_ARM_NEON  := false
+      ;;
+     x86)
+      TOOLCHAIN_PREFIX=i686-linux-android
+      TARGET_ARCH=x86
+      TARGET_ARCH_X264=i686
+      EXTRA_CFLAGS="-mtune=atom -mssse3 -mfpmath=sse"
+      EXTRA_LDFLAGS=""
+      EXTRA_FFMPEG_FLAGS="--disable-avx"
+      LIB_SUB="x86"
       ;;
     *)
       EXTRA_CFLAGS=""
@@ -126,11 +132,28 @@ for version in neon; do
       ;;
   esac
 
-  PREFIX="$DEST/$version" && mkdir -p $PREFIX
-  FFMPEG_FLAGS="$FFMPEG_FLAGS --prefix=$PREFIX"
+  export CC="ccache $TOOLCHAIN_PREFIX-gcc"
+  export LD=$TOOLCHAIN_PREFIX-ld
+  export AR=$TOOLCHAIN_PREFIX-ar
 
+  X264_PREFIX="$X264_DEST/$version" && mkdir -p $X264_PREFIX
+
+if [ -f $X264_DEST/$version/lib/libx264.a ]; then
+    echo "libx264.a ($TARGET_ARCH) is already built."
+else
+    echo "configure and make x264"
+    cd $X264_SOURCE
+   ./configure --cross-prefix=$TOOLCHAIN_PREFIX- --prefix=$X264_PREFIX --host=$TARGET_ARCH_X264-linux $X264_FLAGS --extra-cflags="$CFLAGS $EXTRA_CFLAGS" | tee $X264_PREFIX/configuration.txt
+    make clean
+    make -j4 STRIP= || exit 1
+    make install || exit 1
+fi
+
+  PREFIX="$DEST/$version" && mkdir -p $PREFIX
+
+  cd $SOURCE
   echo "Configure ffmpeg for $version."
-  ./configure $FFMPEG_FLAGS --extra-cflags="$CFLAGS $EXTRA_CFLAGS -I$X264_SOURCE" --extra-ldflags="$EXTRA_LDFLAGS -L$X264_SOURCE" | tee $PREFIX/configuration.txt
+  ./configure --prefix=$PREFIX --arch=$TARGET_ARCH --cross-prefix=$TOOLCHAIN_PREFIX- $FFMPEG_FLAGS $EXTRA_FFMPEG_FLAGS --extra-cflags="$CFLAGS $EXTRA_CFLAGS -I$X264_PREFIX/include" --extra-ldflags="$EXTRA_LDFLAGS -L$X264_PREFIX/lib" | tee $PREFIX/configuration.txt
   cp config.* $PREFIX
   [ $PIPESTATUS == 0 ] || exit 1
 
@@ -140,12 +163,13 @@ for version in neon; do
 
   rm libavcodec/inverse.o
 
-  cd ..
-  $ANDROID_NDK/ndk-build -d -e TARGET_ARCH_ABI=$LIB_SUB LOCAL_ARM_NEON=$LOCAL_ARM_NEON
-  #mv ../libs/armeabi ../libs/$LIB_SUB
+ #mv ../libs/armeabi ../libs/$LIB_SUB
   #$CC -lm -lz -shared --sysroot=$SYSROOT -Wl,--no-undefined -Wl,-z,noexecstack $EXTRA_LDFLAGS libavutil/*.o libavutil/arm/*.o libavcodec/*.o libavcodec/arm/*.o libavformat/*.o libswresample/*.o libswscale/*.o -o $PREFIX/libffmpeg.so
 
   #cp $PREFIX/libffmpeg.so $PREFIX/libffmpeg-debug.so
   #arm-linux-androideabi-strip --strip-unneeded $PREFIX/libffmpeg.so
+done 
 
-done
+  cd ..
+  $ANDROID_NDK/ndk-build -d -e APP_ABI="armeabi-v7a x86" LOCAL_ARM_NEON=true
+ 
